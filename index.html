@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <title>BUCEPHALUS — Нейроавтоматизация для бизнеса</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            primary: '#4F46E5',
+            'primary-light': '#EEF2FF',
+            'primary-dark': '#3730A3',
+            success: '#10B981',
+            'success-light': '#ECFDF5',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ── VIEWPORT SCALING ──
+       Базовый размер шрифта растёт вместе с экраном:
+       320px → 14px | 768px → 15px | 1280px+ → 16px
+       Все rem-единицы Tailwind масштабируются пропорционально. */
+    html {
+      font-size: clamp(14px, calc(0.5vw + 12px), 16px);
+      scroll-behavior: smooth;
+    }
+
+    /* Фиксируем минимальную ширину — ничего не сломается уже */
+    body {
+      min-width: 320px;
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+
+    html {
+      overflow-x: hidden;
+    }
+
+    /* Картинки и SVG никогда не вылезут за контейнер */
+    img, svg { max-width: 100%; height: auto; }
+
+    body { background: #F8FAFC; color: #1E293B; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+
+
+    /* dot grid */
+    .dot-grid {
+      background-image: radial-gradient(circle, #CBD5E1 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* SCROLL ANIMATIONS */
+    .reveal {
+      opacity: 0;
+      transform: translateY(36px);
+      transition: opacity 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                  transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.08s; }
+    .reveal-delay-2 { transition-delay: 0.16s; }
+    .reveal-delay-3 { transition-delay: 0.24s; }
+    .reveal-delay-4 { transition-delay: 0.32s; }
+    .reveal-delay-5 { transition-delay: 0.40s; }
+    .reveal-delay-6 { transition-delay: 0.48s; }
+    .reveal-delay-7 { transition-delay: 0.56s; }
+    .reveal-delay-8 { transition-delay: 0.64s; }
+
+    /* CARD HOVER */
+    .card-hover {
+      transition: box-shadow 0.35s ease, transform 0.35s ease, border-color 0.35s ease;
+    }
+    .card-hover:hover {
+      box-shadow: 0 16px 48px rgba(79,70,229,0.13);
+      transform: translateY(-5px);
+      border-color: rgba(79,70,229,0.25) !important;
+    }
+
+    /* GRADIENT TEXT */
+    .gradient-text {
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* NAV LINK */
+    .nav-link {
+      position: relative; color: #475569;
+      transition: color 0.2s;
+    }
+    .nav-link::after {
+      content: ''; position: absolute;
+      bottom: -2px; left: 0; right: 0; height: 2px;
+      background: #4F46E5;
+      transform: scaleX(0); transform-origin: left;
+      transition: transform 0.25s ease;
+    }
+    .nav-link:hover { color: #4F46E5; }
+    .nav-link:hover::after { transform: scaleX(1); }
+
+    /* PILL */
+    .pill { display: inline-flex; align-items: center; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; padding: 4px 12px; }
+
+    /* CASE CARD expanded */
+    .case-details { max-height: 0; overflow: hidden; transition: max-height 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.4s ease; opacity: 0; }
+    .case-details.open { max-height: 800px; opacity: 1; }
+
+    /* CASE CARD active state */
+    .case-card { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+    .case-card.case-active { border-color: rgba(79,70,229,0.3) !important; box-shadow: 0 8px 32px rgba(79,70,229,0.10); }
+    .case-card.case-active .case-header-inner { border-left: 3px solid #4F46E5; }
+
+    /* CASE HEADER hover */
+    .case-header:hover { filter: brightness(0.97); }
+    .case-header { cursor: pointer; user-select: none; transition: filter 0.2s; }
+
+    /* STAT NUMBER */
+    .stat-num { font-variant-numeric: tabular-nums; }
+
+    /* SECTION DIVIDER */
+    .section-divider { height: 1px; background: linear-gradient(to right, transparent, #E2E8F0, transparent); }
+
+    /* NEURAL CANVAS */
+    #neural-canvas { position: absolute; inset: 0; pointer-events: none; }
+
+    /* PULSE DOT */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.4); }
+    }
+    .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+    /* FLOAT */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    .float-anim { animation: float 4s ease-in-out infinite; }
+    .float-anim-alt { animation: float 4s ease-in-out 2s infinite; }
+
+    /* DIAGRAM ANIMATIONS */
+    @keyframes dash-march {
+      to { stroke-dashoffset: -26; }
+    }
+    .dash-line { animation: dash-march 1.8s linear infinite; }
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 24px rgba(79,70,229,0.35), 0 8px 32px rgba(79,70,229,0.2); }
+      50% { box-shadow: 0 0 44px rgba(124,58,237,0.55), 0 8px 44px rgba(79,70,229,0.3); }
+    }
+    .glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+
+    /* SHINE BUTTON */
+    .btn-shine {
+      position: relative; overflow: hidden;
+      background: #4F46E5;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .btn-shine::before {
+      content: '';
+      position: absolute; top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+      transition: left 0.5s ease;
+    }
+    .btn-shine:hover::before { left: 150%; }
+    .btn-shine:hover { background: #3730A3; box-shadow: 0 8px 24px rgba(79,70,229,0.35); }
+
+    /* SCROLL BAR */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #F1F5F9; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+
+    /* CASE TOGGLE ICON */
+    .toggle-icon { transition: transform 0.3s ease; }
+    .toggle-icon.rotated { transform: rotate(180deg); }
+
+    /* TAG COLORS */
+    .tag-blue { background:#EEF2FF; color:#4F46E5; }
+    .tag-green { background:#ECFDF5; color:#059669; }
+    .tag-orange { background:#FFF7ED; color:#EA580C; }
+    .tag-purple { background:#F5F3FF; color:#7C3AED; }
+    .tag-teal { background:#F0FDFA; color:#0D9488; }
+    .tag-rose { background:#FFF1F2; color:#E11D48; }
+    .tag-amber { background:#FFFBEB; color:#D97706; }
+    .tag-sky { background:#F0F9FF; color:#0284C7; }
+
+    /* OUTLINE BUTTON */
+    .btn-outline {
+      border: 2px solid #7C3AED;
+      color: #7C3AED;
+      background: transparent;
+      transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-outline:hover {
+      background: #7C3AED;
+      color: #fff;
+      transform: scale(1.02);
+    }
+
+    /* STICKY CTA */
+    #sticky-cta {
+      position: fixed;
+      z-index: 999;
+      bottom: 20px;
+      right: 20px;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      pointer-events: none;
+    }
+    #sticky-cta.visible {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #sticky-cta a {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #4F46E5, #7C3AED);
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 24px;
+      border-radius: 50px;
+      box-shadow: 0 8px 32px rgba(79,70,229,0.4);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #sticky-cta a:hover {
+      transform: scale(1.04);
+      box-shadow: 0 12px 40px rgba(79,70,229,0.5);
+    }
+    @media (max-width: 767px) {
+      #sticky-cta {
+        bottom: 0;
+        right: 0;
+        left: 0;
+        transform: translateY(80px);
+      }
+      #sticky-cta a {
+        border-radius: 0;
+        width: 100%;
+        justify-content: center;
+        padding: 16px 20px;
+      }
+    }
+
+    /* PROCESS SECTION */
+    .process-step {
+      flex: 1;
+      text-align: center;
+      padding: 24px 16px;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+      position: relative;
+      transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+    .process-step:hover {
+      box-shadow: 0 8px 32px rgba(79,70,229,0.12);
+      transform: translateY(-4px);
+    }
+    .process-connector {
+      display: flex;
+      align-items: center;
+      padding-top: 24px;
+      color: #CBD5E1;
+      flex-shrink: 0;
+    }
+
+    /* CLIENT LOGOS */
+    .client-logo-placeholder {
+      background: #F1F5F9;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 130px;
+      height: 48px;
+      filter: grayscale(100%);
+      opacity: 0.6;
+      transition: filter 0.3s, opacity 0.3s;
+    }
+    .client-logo-placeholder:hover {
+      filter: grayscale(0%);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- PAGE TRANSITION OVERLAY -->
+
+<!-- ===== NAVBAR ===== -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-lg border-b border-slate-100 shadow-sm">
+  <div class="max-w-6xl mx-auto px-6 flex items-center justify-between h-16">
+
+    <!-- Logo -->
+    <a href="#" class="flex items-center gap-2 group flex-shrink-0">
+      <img src="logos.png" alt="BUCEPHALUS" class="transition-transform group-hover:scale-105 rounded-xl" style="height:40px;width:40px;object-fit:cover;" />
+      <div class="flex flex-col leading-tight">
+        <span style="font-family:'Inter',sans-serif;font-size:14px;font-weight:800;letter-spacing:3px;background:linear-gradient(90deg,#4F46E5,#7C3AED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">BUCEPHALUS</span>
+        <span style="font-family:'Inter',sans-serif;font-size:7px;font-weight:400;letter-spacing:2px;color:#64748B;">НЕЙРОАВТОМАТИЗАЦИЯ ДЛЯ БИЗНЕСА</span>
+      </div>
+    </a>
+
+    <!-- Desktop: nav + contacts + CTA -->
+    <div class="hidden md:flex items-center gap-6">
+
+      <!-- Contacts -->
+      <div class="flex items-center gap-4 border-r border-slate-200 pr-6">
+        <a href="https://t.me/dgnbert" target="_blank"
+           class="flex items-center gap-1.5 text-slate-500 hover:text-[#229ED9] transition-colors text-sm"
+           title="Telegram">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.869 4.326-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.83.941z"/></svg>
+          <span>@dgnbert</span>
+        </a>
+        <a href="tel:+79005356121"
+           class="flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors text-sm"
+           title="Позвонить">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+          <span>+7 900 535-61-21</span>
+        </a>
+      </div>
+
+      <!-- Nav links -->
+      <a href="#cases" class="nav-link text-sm font-medium">Кейсы</a>
+      <a href="#services" class="nav-link text-sm font-medium">Услуги</a>
+      <a href="#about" class="nav-link text-sm font-medium">О нас</a>
+      <a href="#contact" class="btn-shine text-white text-sm font-semibold px-4 py-2 rounded-lg">Обсудить проект</a>
+    </div>
+
+    <!-- Mobile: icon contacts + hamburger -->
+    <div class="flex md:hidden items-center gap-3">
+      <a href="https://t.me/dgnbert" target="_blank"
+         class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#229ED9] hover:bg-slate-100 transition-colors"
+         title="Telegram">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.869 4.326-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.83.941z"/></svg>
+      </a>
+      <a href="tel:+79005356121"
+         class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-primary hover:bg-slate-100 transition-colors"
+         title="Позвонить">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+      </a>
+      <button id="menu-btn" class="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-primary transition-colors">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Mobile menu dropdown -->
+  <div id="mobile-menu" class="hidden md:hidden px-6 pb-5 flex flex-col gap-3 bg-white border-t border-slate-100">
+    <a href="#cases" class="text-sm font-medium text-slate-600 py-1">Кейсы</a>
+    <a href="#services" class="text-sm font-medium text-slate-600 py-1">Услуги</a>
+    <a href="#about" class="text-sm font-medium text-slate-600 py-1">О нас</a>
+    <div class="border-t border-slate-100 pt-3 mt-1 flex flex-col gap-2">
+      <a href="tel:+79005356121" class="flex items-center gap-2 text-sm font-medium text-slate-600 py-1">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+        +7 900 535-61-21
+      </a>
+      <a href="https://t.me/dgnbert" target="_blank" class="flex items-center gap-2 text-sm font-medium text-slate-600 py-1">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="color:#229ED9"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.869 4.326-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.83.941z"/></svg>
+        @dgnbert
+      </a>
+    </div>
+    <a href="#contact" class="bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg text-center mt-1">Обсудить проект</a>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="relative min-h-screen dot-grid flex items-center overflow-hidden pt-16">
+  <canvas id="neural-canvas"></canvas>
+  <div class="absolute inset-0 bg-white/80 pointer-events-none"></div>
+
+  <div class="relative max-w-5xl mx-auto px-6 py-24 w-full">
+    <div class="reveal flex items-center gap-2 mb-8">
+    </div>
+
+    <h1 class="reveal reveal-delay-1 font-extrabold text-slate-900 mb-4" style="font-size:clamp(2rem,4.5vw,3.5rem);line-height:1.15;">
+      Пока вы тратите часы на рутину<br/>
+      конкуренты автоматизируют.
+    </h1>
+    <h2 class="reveal reveal-delay-2 font-extrabold mb-8" style="font-size:clamp(1.5rem,3.2vw,2.5rem);line-height:1.2;color:#4B5563;">
+      Внедряем ИИ под любые задачи бизнеса.<br/>
+      Наши клиенты ускоряют процессы на <span class="gradient-text">87%</span>
+    </h2>
+
+    <p class="reveal reveal-delay-3 text-[18px] text-[#4B5563] mb-8 leading-relaxed" style="max-width:600px;">
+      Разрабатываем нейроавтоматизацию под конкретные задачи. Заменяем рутину на AI,
+      интегрируемся в существующие системы и даём измеримый результат — не демо, а реальные проекты.
+    </p>
+
+    <div class="reveal reveal-delay-4 flex flex-wrap gap-4 items-center">
+      <a href="#contact" class="btn-shine text-white font-semibold px-7 py-3.5 rounded-xl shadow-lg shadow-primary/25 flex items-center gap-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Получить бесплатный аудит
+      </a>
+      <a href="#cases" class="btn-outline font-semibold px-7 py-3.5 rounded-xl gap-2">
+        Смотреть кейсы
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+
+    <div class="reveal reveal-delay-5 flex items-start mt-10 pt-8 border-t border-slate-200" style="max-width:680px;">
+      <div class="text-center flex-1 px-2">
+        <div class="text-3xl font-extrabold text-[#7C3AED] stat-num" data-target="87" data-suffix="%">0%</div>
+        <div class="text-[11px] text-[#4B5563] mt-1 leading-snug">с 12% до 87%<br/>конверсия в CRM</div>
+      </div>
+      <div class="self-stretch w-px bg-[#E5E7EB] flex-shrink-0 mx-1"></div>
+      <div class="text-center flex-1 px-2">
+        <div class="text-3xl font-extrabold text-[#7C3AED] stat-num" data-target="40000" data-suffix="+">0+</div>
+        <div class="text-[11px] text-[#4B5563] mt-1 leading-snug">звонков<br/>обработано AI</div>
+      </div>
+      <div class="self-stretch w-px bg-[#E5E7EB] flex-shrink-0 mx-1"></div>
+      <div class="text-center flex-1 px-2">
+        <div class="text-3xl font-extrabold text-[#7C3AED] stat-num" data-target="9" data-suffix="">0</div>
+        <div class="text-[11px] text-[#4B5563] mt-1 leading-snug">проектов<br/>в продакшене</div>
+      </div>
+      <div class="self-stretch w-px bg-[#E5E7EB] flex-shrink-0 mx-1"></div>
+      <div class="text-center flex-1 px-2">
+        <div class="text-3xl font-extrabold text-[#7C3AED] stat-num" data-target="80" data-prefix="−" data-suffix="%">−0%</div>
+        <div class="text-[11px] text-[#4B5563] mt-1 leading-snug">расходов<br/>на контент</div>
+      </div>
+      <div class="self-stretch w-px bg-[#E5E7EB] flex-shrink-0 mx-1"></div>
+      <div class="text-center flex-1 px-2">
+        <div class="text-3xl font-extrabold text-[#7C3AED] stat-num" data-target="4" data-suffix="+">0</div>
+        <div class="text-[11px] text-[#4B5563] mt-1 leading-snug">лет<br/>непрерывной работы</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SERVICES ===== -->
+<style>
+@keyframes svc-orb-pulse {
+  0%,100% { transform: scale(1); opacity: .9; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+@keyframes svc-ring {
+  0%   { transform: scale(.85); opacity: .6; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+@keyframes svc-float-a {
+  0%,100% { transform: translateY(0px) rotate(0deg); }
+  50%     { transform: translateY(-10px) rotate(3deg); }
+}
+@keyframes svc-float-b {
+  0%,100% { transform: translateY(0px) rotate(0deg); }
+  50%     { transform: translateY(-7px) rotate(-4deg); }
+}
+@keyframes svc-float-c {
+  0%,100% { transform: translateY(0px); }
+  50%     { transform: translateY(-12px); }
+}
+@keyframes svc-particle {
+  0%   { transform: translateY(0) scale(1); opacity:.7; }
+  100% { transform: translateY(-60px) scale(0); opacity:0; }
+}
+@keyframes svc-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.svc-orb { animation: svc-orb-pulse 3s ease-in-out infinite; }
+.svc-ring1 { animation: svc-ring 2.5s ease-out infinite; }
+.svc-ring2 { animation: svc-ring 2.5s ease-out infinite .8s; }
+.svc-ring3 { animation: svc-ring 2.5s ease-out infinite 1.6s; }
+.svc-chip-a { animation: svc-float-a 4s ease-in-out infinite; }
+.svc-chip-b { animation: svc-float-b 5s ease-in-out infinite .6s; }
+.svc-chip-c { animation: svc-float-c 3.8s ease-in-out infinite 1.2s; }
+.svc-p1 { animation: svc-particle 2.2s ease-out infinite; }
+.svc-p2 { animation: svc-particle 2.2s ease-out infinite .7s; }
+.svc-p3 { animation: svc-particle 2.2s ease-out infinite 1.4s; }
+.svc-btn-shimmer {
+  background: linear-gradient(90deg,#4F46E5 0%,#7C3AED 40%,#a78bfa 60%,#4F46E5 100%);
+  background-size: 200% auto;
+  animation: svc-shimmer 2.5s linear infinite;
+}
+</style>
+
+<section id="services" class="py-20 bg-white">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex flex-col lg:flex-row gap-10 items-start">
+
+      <!-- ── LEFT: header + slider ── -->
+      <div class="flex-1 min-w-0">
+
+        <div class="reveal mb-8">
+          <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-3">Услуги</p>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight">Адаптируем решения под задачи вашего бизнеса</h2>
+          <!-- arrows under "вашего" -->
+          <div class="flex items-center gap-3 mt-5">
+            <button id="svc-prev" aria-label="Назад"
+              class="svc-nav-btn w-10 h-10 rounded-full text-slate-600 flex items-center justify-center"
+              style="border:1.5px solid rgba(0,0,0,0.15);transition:background .25s,border-color .25s,transform .15s">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16l-5-5 5-5"/></svg>
+            </button>
+            <button id="svc-next" aria-label="Вперёд"
+              class="svc-nav-btn w-10 h-10 rounded-full text-slate-600 flex items-center justify-center"
+              style="border:1.5px solid rgba(0,0,0,0.15);transition:background .25s,border-color .25s,transform .15s">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l5-5-5-5"/></svg>
+            </button>
+            <div id="svc-dots" class="flex gap-2 ml-2"></div>
+          </div>
+        </div>
+
+        <!-- Slider -->
+        <div id="svc-container" class="overflow-hidden">
+          <div id="svc-track" class="flex gap-5" style="transition:transform .55s cubic-bezier(.25,.46,.45,.94);will-change:transform">
+
+            <!-- 1 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#431407,#9a3412)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 35% 65%,rgba(249,115,22,.35),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">Обработка документации</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Excel, PDF и сканы на любых языках. 300+ позиций сопоставлены с базой данных за 15 минут.</p>
+              </div>
+            </div>
+
+            <!-- 2 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#022c22,#065f46)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 70% 35%,rgba(16,185,129,.35),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">Интеллектуальный поиск</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Семантический матчинг по 370K+ записям, кросс-языковой поиск. Покрытие 81% входящих запросов.</p>
+              </div>
+            </div>
+
+            <!-- 3 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#4c0519,#9f1239)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 40% 60%,rgba(251,113,133,.3),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 11 19.79 19.79 0 0 1 1.62 2.38A2 2 0 0 1 3.6.18L6.52.18a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.09a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">Контроль качества продаж</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">AI-оценка по 17 критериям, детектор откатов. 500+ звонков обрабатываются в день без участия менеджера.</p>
+              </div>
+            </div>
+
+            <!-- 4 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#2e1065,#6d28d9)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 60% 40%,rgba(167,139,250,.3),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">Парсинг и мониторинг</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Госуслуги, ФНС с УКЭП, любые SPA-сайты. Автоматический сбор данных с любых порталов.</p>
+              </div>
+            </div>
+
+            <!-- 5 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#451a03,#b45309)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 30% 60%,rgba(251,191,36,.3),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">CRM-интеллект</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Реанимация отказников и умная сегментация базы. Конверсия 87% на 28 000 реальных клиентов.</p>
+              </div>
+            </div>
+
+            <!-- 6 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#4a044e,#a21caf)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 55% 40%,rgba(232,121,249,.3),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">AI-генерация контента</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Фото, видео и рекламные креативы без фотостудии. Снижение стоимости производства до –80%.</p>
+              </div>
+            </div>
+
+            <!-- 7 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#042f2e,#0f766e)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 40% 60%,rgba(45,212,191,.3),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">Голосовые AI-агенты</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Входящие и исходящие звонки 24/7, квалификация лидов. Стоимость звонка снижается на –70%.</p>
+              </div>
+            </div>
+
+            <!-- 8 -->
+            <div class="svc-card flex-shrink-0 w-[270px] rounded-2xl overflow-hidden" style="background:#fff;border:1px solid rgba(0,0,0,0.07);box-shadow:0 4px 24px rgba(0,0,0,0.07)">
+              <div class="h-40 flex items-center justify-center relative overflow-hidden" style="background:linear-gradient(135deg,#1e1b4b,#3730a3)">
+                <div class="absolute inset-0" style="background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.35),transparent 65%)"></div>
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.82)" stroke-width="1.1" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              </div>
+              <div class="p-5">
+                <h3 class="text-slate-900 font-bold text-base mb-1.5">AI-агент под задачу</h3>
+                <p class="text-slate-500 text-sm leading-relaxed">Кастомное решение под любой процесс: интеграция в ERP, CRM, базы данных. Любой стек.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+<script>
+function svcPhoneSubmit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('svc-phone-btn');
+  const input = document.getElementById('svc-phone-input');
+  if (!input.value.trim()) {
+    input.style.borderColor = 'rgba(251,113,133,.8)';
+    setTimeout(() => input.style.borderColor = 'rgba(255,255,255,.2)', 1500);
+    return;
+  }
+  btn.textContent = '✓ Отлично! Перезвоним скоро';
+  btn.style.background = 'linear-gradient(90deg,#059669,#10b981)';
+  btn.style.animation = 'none';
+  btn.disabled = true;
+  input.disabled = true;
+}
+</script>
+
+<!-- ===== SERVICE MODAL ===== -->
+<div id="svc-modal" style="position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity 0.3s ease">
+  <div id="svc-modal-bg" style="position:absolute;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px)"></div>
+  <div id="svc-modal-box" style="position:relative;background:linear-gradient(145deg,#16161f,#0e0e17);border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:32px;width:100%;max-width:440px;transform:scale(0.93) translateY(12px);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1),opacity 0.3s ease;box-shadow:0 32px 80px rgba(0,0,0,0.6)">
+    <button id="svc-modal-close" style="position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s">×</button>
+    <p id="svc-modal-tag" style="font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#818cf8;margin-bottom:8px">Оставить заявку</p>
+    <h3 id="svc-modal-title" style="font-size:20px;font-weight:800;color:white;margin-bottom:6px"></h3>
+    <p id="svc-modal-desc" style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:24px;line-height:1.5"></p>
+    <form id="svc-modal-form" style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="display:block;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:8px;font-weight:500">Номер телефона</label>
+        <input type="tel" placeholder="+7 (999) 000-00-00" required style="width:100%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:14px 18px;color:white;font-size:15px;outline:none;transition:border-color 0.2s,background 0.2s;box-sizing:border-box" />
+      </div>
+      <button type="submit" id="svc-modal-submit" style="width:100%;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:white;font-weight:800;font-size:14px;padding:14px;border-radius:14px;border:none;cursor:pointer;transition:opacity 0.2s,transform 0.15s;margin-top:4px">
+        Отправить заявку
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== HOW WE WORK ===== -->
+<section class="py-20" style="background:#F9FAFB;">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="reveal text-center mb-14">
+      <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-3">Процесс</p>
+      <h2 class="text-4xl font-extrabold text-slate-900">Как мы работаем</h2>
+    </div>
+
+    <div class="flex flex-col lg:flex-row items-start gap-4">
+
+      <!-- Step 1 -->
+      <div class="process-step reveal">
+        <div class="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#EEF2FF,#DDD6FE);">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#7C3AED;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Шаг 1</div>
+        <h3 class="font-bold text-slate-900 text-lg mb-3">Аудит</h3>
+        <p class="text-[#4B5563] text-sm leading-relaxed">Анализируем ваши процессы и находим точки автоматизации с максимальным ROI</p>
+      </div>
+
+      <!-- Connector -->
+      <div class="process-connector hidden lg:flex">
+        <svg width="32" height="24" viewBox="0 0 32 24" fill="none"><path d="M0 12h28M22 6l6 6-6 6" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"/></svg>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="process-step reveal reveal-delay-1">
+        <div class="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#EEF2FF,#DDD6FE);">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#7C3AED;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Шаг 2</div>
+        <h3 class="font-bold text-slate-900 text-lg mb-3">Проектирование</h3>
+        <p class="text-[#4B5563] text-sm leading-relaxed">Проектируем решение и согласуем архитектуру, стек и метрики успеха с вами</p>
+      </div>
+
+      <!-- Connector -->
+      <div class="process-connector hidden lg:flex">
+        <svg width="32" height="24" viewBox="0 0 32 24" fill="none"><path d="M0 12h28M22 6l6 6-6 6" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"/></svg>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="process-step reveal reveal-delay-2">
+        <div class="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#EEF2FF,#DDD6FE);">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#7C3AED;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Шаг 3</div>
+        <h3 class="font-bold text-slate-900 text-lg mb-3">Внедрение</h3>
+        <p class="text-[#4B5563] text-sm leading-relaxed">Интегрируем в существующие системы — 1С, Bitrix24, AmoCRM или любые другие с API</p>
+      </div>
+
+      <!-- Connector -->
+      <div class="process-connector hidden lg:flex">
+        <svg width="32" height="24" viewBox="0 0 32 24" fill="none"><path d="M0 12h28M22 6l6 6-6 6" stroke="#CBD5E1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4 3"/></svg>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="process-step reveal reveal-delay-3">
+        <div class="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center" style="background:linear-gradient(135deg,#EEF2FF,#DDD6FE);">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#7C3AED;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Шаг 4</div>
+        <h3 class="font-bold text-slate-900 text-lg mb-3">Поддержка</h3>
+        <p class="text-[#4B5563] text-sm leading-relaxed">Сопровождаем и масштабируем решение. Самый долгий клиент — 4 года без остановки</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="section-divider max-w-6xl mx-auto px-6"></div>
+
+<!-- ===== CASES ===== -->
+<section id="cases" class="py-24">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="reveal text-center mb-16">
+      <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-3">Портфолио</p>
+      <h2 class="text-4xl font-extrabold text-slate-900 mb-4">8 реализованных проектов</h2>
+      <p class="text-slate-500 max-w-xl mx-auto">Не концепции и не прототипы. Всё это работает у реальных клиентов прямо сейчас. Нажмите на карточку — увидите детали.</p>
+    </div>
+
+    <div class="flex flex-col gap-4 max-w-4xl mx-auto">
+
+      <!-- CASE 1 -->
+      <div class="reveal bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="1">
+        <div class="case-header bg-gradient-to-br from-blue-50 to-indigo-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-primary/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-blue border border-indigo-100 text-xs">Январь 2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Фармацевтика</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">Автоматизация обработки заказов от зарубежных партнёров</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-primary">81%</div><div class="text-xs text-slate-500">покрытие</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-primary">15 мин</div><div class="text-xs text-slate-500">вместо 2–3 дней</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-primary">301</div><div class="text-xs text-slate-500">позиций</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-1">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Зарубежные партнёры (Южная Корея и другие) присылают Excel-файлы с 300+ позициями лекарств на корейском языке. Ручная обработка — 2–3 рабочих дня. AI берёт файл и за 15 минут выдаёт готовый Excel для оформления заказа.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Парсинг корейских наименований, нормализация дозировок, транслитерация производителей</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Сопоставление с 2 внутренними БД: склад + прайс-листы поставщиков</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">3 листа в итоговом Excel: «Найдено», «Альтернативы», «Не найдено»</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">244 из 301 позиций обработаны автоматически без участия сотрудника</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-blue text-xs">Python</span><span class="pill tag-blue text-xs">LLM (Claude)</span><span class="pill tag-blue text-xs">openpyxl</span><span class="pill tag-blue text-xs">SQL</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 2 -->
+      <div class="reveal reveal-delay-1 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="2">
+        <div class="case-header bg-gradient-to-br from-violet-50 to-purple-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-violet-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-purple border border-purple-100 text-xs">Дек 2025 — Март 2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Аптечная сеть</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">Комплексная AI-автоматизация для аптечной сети</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-violet-600">40К руб</div><div class="text-xs text-slate-500">убытков выявлено</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-violet-600">1.5 млн</div><div class="text-xs text-slate-500">замороженный кап.</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-violet-600">0</div><div class="text-xs text-slate-500">визитов в МФЦ</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-2">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Три задачи в одном проекте: регистрация ООО через Госуслуги без МФЦ, выявление хищений по 370K транзакций, аудит склада с конкурентным анализом цен.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Полная регистрация ООО: Госуслуги + ФНС (Р13014) + Роспотребнадзор + МДЛП</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Анализ 370 000 транзакций — обнаружены систематические злоупотребления со скидками</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Просрочка ~40К руб., замороженный капитал 1.5 млн руб. идентифицированы</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Выявлены позиции с наценкой 20–50% выше рынка — рекомендации по корректировке</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-purple text-xs">Playwright CDP</span><span class="pill tag-purple text-xs">КриптоПро</span><span class="pill tag-purple text-xs">SQL</span><span class="pill tag-purple text-xs">ReportLab</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 3 -->
+      <div class="reveal reveal-delay-2 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="3">
+        <div class="case-header bg-gradient-to-br from-emerald-50 to-teal-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-emerald-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-green border border-emerald-100 text-xs">Фев — Март 2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">B2B продажи</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">AI-платформа контроля качества отдела продаж</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-emerald-600">40K+</div><div class="text-xs text-slate-500">звонков</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-emerald-600">17</div><div class="text-xs text-slate-500">критериев оценки</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-emerald-600">3</div><div class="text-xs text-slate-500">компании</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-3">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Руководители не знают, что происходит на звонках менеджеров. Прослушивать 50–100 звонков вручную — 8+ часов в день. AI транскрибирует и анализирует каждый звонок за секунды.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Автоматическая транскрипция Whisper STT с GPU-ускорением, 100% без потерь</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Детектор мошенничества: 6 категорий — откаты, нал мимо кассы, слив лидов</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Автозаполнение amoCRM: вид техники, бюджет, район, сроки — из разговора</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">3 компании на одной платформе с полной изоляцией данных и отдельными Telegram-ботами</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-green text-xs">Whisper STT</span><span class="pill tag-green text-xs">Claude Sonnet</span><span class="pill tag-green text-xs">amoCRM API</span><span class="pill tag-green text-xs">Telegram Bot</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 4 -->
+      <div class="reveal reveal-delay-3 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="4">
+        <div class="case-header bg-gradient-to-br from-rose-50 to-pink-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-rose-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-rose border border-rose-100 text-xs">2025–2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Нутрициология</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">NutriApp — AI-продукт для нутрициолога с нуля</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-rose-500">24/7</div><div class="text-xs text-slate-500">консультации</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-rose-500">240K</div><div class="text-xs text-slate-500">руб/мес потенциал</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-rose-500">2 дня</div><div class="text-xs text-slate-500">white-label</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-4">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Нутрициолог не мог масштабировать консультации — каждый клиент требовал личного времени. Разработан Telegram-бот с AI-ядром, который работает как персональный нутрициолог 24/7.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Анализ КБЖУ по фото: клиент фотографирует блюдо — AI считает белки/жиры/углеводы</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Подписочная модель 1 000 руб./мес — пассивный доход без участия нутрициолога</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">300 подписчиков = 240 000 руб./мес. White-label за 2 дня — под любой бренд</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">20+ пользователей на активном тестировании. Применимо для любого эксперта</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-rose text-xs">Telegram Bot</span><span class="pill tag-rose text-xs">LLM (Claude)</span><span class="pill tag-rose text-xs">Python</span><span class="pill tag-rose text-xs">Vision API</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 5 -->
+      <div class="reveal bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="5">
+        <div class="case-header bg-gradient-to-br from-amber-50 to-orange-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-amber-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-amber border border-amber-100 text-xs">2022–2026 (4 года)</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Опт</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">ФлаконОПТ — 28 000 контактов под управлением AI</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-amber-600">87%</div><div class="text-xs text-slate-500">конверсия</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-amber-600">+35%</div><div class="text-xs text-slate-500">повторные продажи</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-amber-600">28K</div><div class="text-xs text-slate-500">контактов</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-5">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">28 000 контактов в базе — и полный хаос. VIP-клиенты получали те же письма, что и разовые покупатели. Конверсия была 37%. После внедрения CRM-интеллекта — 87%. 4 года бесперебойной работы.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Сегментация всей базы A+/A/B/C по объёму, частоте, давности и потенциалу</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Автоматическая реанимация отказников — триггерные цепочки без участия менеджера</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Омниканальность: WhatsApp, Telegram, ВКонтакте в одном окне</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">87% конверсия подтверждена 4 годами на реальной базе 28 000 контактов</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-amber text-xs">amoCRM API</span><span class="pill tag-amber text-xs">Python</span><span class="pill tag-amber text-xs">AI-сегментация</span><span class="pill tag-amber text-xs">Омниканал</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 6 -->
+      <div class="reveal reveal-delay-1 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="6">
+        <div class="case-header bg-gradient-to-br from-sky-50 to-cyan-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-sky-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-sky border border-sky-100 text-xs">2025–2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">E-commerce</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">AI-генерация изображений и видео для бизнеса</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-sky-600">5 мин</div><div class="text-xs text-slate-500">фото продукта</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-sky-600">–80%</div><div class="text-xs text-slate-500">затраты на контент</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-sky-600">50</div><div class="text-xs text-slate-500">форматов из 1</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-6">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Профессиональная фотосессия — от 30 000 руб. Видеоролик — от 50 000 руб. и 2–3 недели ожидания. AI создаёт контент за часы. Один исходник — 50 форматов под все площадки автоматически.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Продуктовые фото на любом фоне, в любом стиле — без фотостудии</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Видеоролики от сценария до монтажа с озвучкой и субтитрами за 2–4 часа</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Контент-завод: система обучается на материалах бренда и производит по расписанию</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Снижение затрат на контент до 80% vs. традиционное производство</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-sky text-xs">Midjourney</span><span class="pill tag-sky text-xs">Runway</span><span class="pill tag-sky text-xs">Sora / Kling</span><span class="pill tag-sky text-xs">Python</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 7 -->
+      <div class="reveal reveal-delay-2 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="7">
+        <div class="case-header bg-gradient-to-br from-indigo-50 to-blue-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-indigo-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-blue border border-indigo-100 text-xs">2025–2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Продажи / Сервис</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">AI-агенты на входящие и исходящие звонки</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-indigo-600">24/7</div><div class="text-xs text-slate-500">без перерывов</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-indigo-600">–70%</div><div class="text-xs text-slate-500">стоимость звонка</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-indigo-600">1000+</div><div class="text-xs text-slate-500">линий одновременно</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-7">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">Менеджер делает 80–100 звонков в день, дозванивается до 30–40%. Один оператор — от 40 000 руб./мес + обучение + текучка. AI-агент работает 24/7, масштабируется мгновенно до 1000+ линий.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Исходящие: массовый обзвон, квалификация лидов, передача горячих контактов менеджеру</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Входящие: приём 24/7, маршрутизация, ответы на типовые вопросы, запись на услугу</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Сценарии с ветвлением: обработка возражений, ответы на вопросы, назначение встреч</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Интеграция с CRM: все результаты автоматически в карточке клиента после звонка</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-blue text-xs">Voice AI</span><span class="pill tag-blue text-xs">LLM (Claude)</span><span class="pill tag-blue text-xs">amoCRM API</span><span class="pill tag-blue text-xs">TTS/STT</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CASE 8 -->
+      <div class="reveal reveal-delay-3 bg-white rounded-2xl border border-slate-100 overflow-hidden case-card" data-case="8">
+        <div class="case-header bg-gradient-to-br from-teal-50 to-cyan-100 px-6 py-5 relative overflow-hidden">
+          <div class="absolute -right-6 -top-6 w-28 h-28 bg-teal-400/8 rounded-full"></div>
+          <div class="flex items-start justify-between">
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="pill tag-teal border border-teal-100 text-xs">Янв — Фев 2026</span>
+                <span class="pill bg-white text-slate-500 border border-slate-200 text-xs">Фарма / Экспорт</span>
+              </div>
+              <h3 class="font-bold text-slate-900 text-base leading-snug pr-8">Автоматизация сбора документов качества для экспорта</h3>
+            </div>
+            <svg class="toggle-icon flex-shrink-0 mt-1 text-slate-400" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="flex gap-4 mt-4">
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-teal-600">Часы</div><div class="text-xs text-slate-500">вместо дней</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-teal-600">90%+</div><div class="text-xs text-slate-500">без участия человека</div></div>
+            <div class="bg-white/80 rounded-xl px-3 py-2 text-center"><div class="text-lg font-extrabold text-teal-600">0</div><div class="text-xs text-slate-500">ошибок ручного поиска</div></div>
+          </div>
+        </div>
+        <div class="case-details px-6" id="case-8">
+          <div class="py-5 border-t border-slate-100">
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">При экспорте таможня требует сертификат качества на каждую позицию. Сотрудник вручную искал в БД, заходил в ЛК дистрибьюторов, писал письма производителям. На одну отгрузку — несколько дней.</p>
+            <div class="space-y-2 mb-4">
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">AI парсит Excel отгрузки, ищет приходные накладные по сериям в БД</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Автоматически заходит в ЛК дистрибьюторов и скачивает сертификаты</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Составляет и отправляет письма производителям, собирает ответы с почты</span></div>
+              <div class="flex items-start gap-2 text-sm"><div class="w-5 h-5 rounded-full bg-success-light flex items-center justify-center flex-shrink-0 mt-0.5"><svg width="10" height="10" fill="none" stroke="#10B981" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><span class="text-slate-600">Готовый пакет документов отправляется в таможенный отдел автоматически</span></div>
+            </div>
+            <div class="flex flex-wrap gap-1.5"><span class="pill tag-teal text-xs">Playwright CDP</span><span class="pill tag-teal text-xs">Email automation</span><span class="pill tag-teal text-xs">SQL</span><span class="pill tag-teal text-xs">Python</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONSULTATION FORM ===== -->
+<section class="py-16 bg-white">
+  <div class="max-w-5xl mx-auto px-6">
+    <div class="flex flex-col lg:flex-row items-center gap-10">
+
+      <!-- Robot SVG + speech bubble -->
+      <div class="flex-shrink-0 flex flex-col items-center justify-center" style="position:relative;">
+
+        <!-- Speech bubble -->
+        <div style="position:relative;background:#fff;border:1.5px solid #E0E7FF;border-radius:18px;padding:14px 18px;max-width:260px;box-shadow:0 4px 20px rgba(79,70,229,.1);margin-bottom:16px;">
+          <p style="color:#4F46E5;font-size:12px;font-weight:700;margin-bottom:5px;">Бесплатная консалтинг-сессия с экспертом</p>
+          <p style="color:#475569;font-size:12px;line-height:1.55;margin:0;">Заполните форму, мы свяжемся для консультации, составим коммерческое предложение и поможем подготовить проект</p>
+          <!-- bubble tail -->
+          <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:10px solid #E0E7FF;"></div>
+          <div style="position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:9px solid #fff;"></div>
+        </div>
+
+        <div class="flex-shrink-0 flex items-center justify-center">
+        <svg viewBox="0 0 260 340" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:220px;height:auto;">
+          <defs>
+            <radialGradient id="rb-bg" cx="50%" cy="55%" r="50%"><stop offset="0%" stop-color="#7C3AED" stop-opacity="0.08"/><stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/></radialGradient>
+            <radialGradient id="rb-bl" cx="35%" cy="40%" r="65%"><stop offset="0%" stop-color="#C4B5FD"/><stop offset="100%" stop-color="#6D28D9"/></radialGradient>
+            <radialGradient id="rb-br" cx="65%" cy="40%" r="65%"><stop offset="0%" stop-color="#C4B5FD"/><stop offset="100%" stop-color="#6D28D9"/></radialGradient>
+            <filter id="rb-g"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="rb-gs"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <ellipse cx="130" cy="170" rx="110" ry="132" fill="url(#rb-bg)"/>
+          <rect x="128" y="14" width="4" height="28" rx="2" fill="#A78BFA"/>
+          <circle cx="130" cy="10" r="8" fill="#7C3AED" filter="url(#rb-gs)"/>
+          <circle cx="130" cy="10" r="4" fill="#C4B5FD"/>
+          <rect x="78" y="42" width="104" height="72" rx="20" fill="#4F46E5"/>
+          <rect x="80" y="44" width="100" height="28" rx="18" fill="white" fill-opacity="0.07"/>
+          <rect x="90" y="64" width="32" height="20" rx="8" fill="#1E1B4B"/>
+          <rect x="138" y="64" width="32" height="20" rx="8" fill="#1E1B4B"/>
+          <circle cx="106" cy="74" r="7" fill="#818CF8" filter="url(#rb-gs)"/>
+          <circle cx="154" cy="74" r="7" fill="#818CF8" filter="url(#rb-gs)"/>
+          <circle cx="106" cy="74" r="3.5" fill="white"/>
+          <circle cx="154" cy="74" r="3.5" fill="white"/>
+          <rect x="96" y="98" width="68" height="7" rx="3.5" fill="#312E81"/>
+          <rect x="102" y="99" width="10" height="5" rx="2" fill="#818CF8" opacity="0.85"/>
+          <rect x="117" y="99" width="10" height="5" rx="2" fill="#818CF8" opacity="0.85"/>
+          <rect x="132" y="99" width="10" height="5" rx="2" fill="#818CF8" opacity="0.85"/>
+          <rect x="147" y="99" width="10" height="5" rx="2" fill="#818CF8" opacity="0.85"/>
+          <rect x="114" y="114" width="32" height="14" rx="5" fill="#3730A3"/>
+          <rect x="62" y="128" width="136" height="94" rx="22" fill="#4338CA"/>
+          <rect x="64" y="130" width="132" height="34" rx="20" fill="white" fill-opacity="0.06"/>
+          <rect x="80" y="143" width="100" height="56" rx="11" fill="#1E1B4B"/>
+          <polyline points="88,171 95,160 101,179 109,150 117,179 123,165 130,171 137,158 145,171 158,171 172,171" stroke="#818CF8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="62" cy="140" r="9" fill="#3730A3"/>
+          <circle cx="198" cy="140" r="9" fill="#3730A3"/>
+          <rect x="30" y="138" width="30" height="74" rx="14" fill="#4338CA"/>
+          <rect x="200" y="138" width="30" height="74" rx="14" fill="#4338CA"/>
+          <ellipse cx="45" cy="218" rx="18" ry="12" fill="#3730A3"/>
+          <ellipse cx="45" cy="214" rx="14" ry="8" fill="#4338CA"/>
+          <ellipse cx="215" cy="218" rx="18" ry="12" fill="#3730A3"/>
+          <ellipse cx="215" cy="214" rx="14" ry="8" fill="#4338CA"/>
+          <ellipse cx="130" cy="227" rx="46" ry="30" fill="#7C3AED" fill-opacity="0.2" filter="url(#rb-g)"/>
+          <path d="M130,208 C124,200 110,200 103,209 C95,218 97,230 105,235 C102,243 106,252 116,251 C119,257 126,256 130,252Z" fill="url(#rb-bl)"/>
+          <path d="M130,208 C136,200 150,200 157,209 C165,218 163,230 155,235 C158,243 154,252 144,251 C141,257 134,256 130,252Z" fill="url(#rb-br)"/>
+          <path d="M130,210 L130,250" stroke="#C4B5FD" stroke-width="1.5" stroke-dasharray="3 2.5" opacity="0.55"/>
+          <path d="M108,220 C113,214 118,217 115,223" stroke="#DDD6FE" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M105,230 C111,224 116,227 113,234" stroke="#DDD6FE" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M152,220 C147,214 142,217 145,223" stroke="#DDD6FE" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <path d="M155,230 C149,224 144,227 147,234" stroke="#DDD6FE" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.8"/>
+          <circle cx="130" cy="230" r="4" fill="#C4B5FD" filter="url(#rb-gs)" opacity="0.9"/>
+          <rect x="89" y="222" width="34" height="62" rx="12" fill="#4338CA"/>
+          <rect x="137" y="222" width="34" height="62" rx="12" fill="#4338CA"/>
+          <rect x="83" y="277" width="46" height="17" rx="9" fill="#3730A3"/>
+          <rect x="131" y="277" width="46" height="17" rx="9" fill="#3730A3"/>
+          <circle cx="52" cy="100" r="3" fill="#A78BFA" opacity="0.55" class="svc-p1"/>
+          <circle cx="208" cy="100" r="3" fill="#A78BFA" opacity="0.55" class="svc-p2"/>
+        </svg>
+      </div>
+
+      </div><!-- end robot+bubble wrapper -->
+
+      <!-- Compact form card -->
+      <div class="flex-1" style="max-width:360px;margin:0 auto;">
+        <div class="rounded-3xl" style="background:#fff;border:1.5px solid #E0E7FF;box-shadow:0 16px 48px rgba(79,70,229,.12);">
+          <div style="padding:28px 28px 28px">
+            <p style="color:#7C3AED;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Бесплатная консультация</p>
+            <h3 style="color:#1E293B;font-size:20px;font-weight:800;line-height:1.3;margin-bottom:18px">Оставьте номер —<br/>мы позвоним вам</h3>
+            <form id="svc-phone-form" onsubmit="svcPhoneSubmit(event)">
+              <div style="position:relative;margin-bottom:14px">
+                <input id="svc-phone-input" type="tel" placeholder="+7 (___) ___-__-__"
+                  style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:14px;padding:13px 16px;color:#1E293B;font-size:15px;font-family:inherit;outline:none;transition:border-color .25s;box-sizing:border-box"
+                  onfocus="this.style.borderColor='#7C3AED';this.style.background='#F5F3FF'"
+                  onblur="this.style.borderColor='#E2E8F0';this.style.background='#F8FAFC'"
+                  oninput="this.value=this.value.replace(/[^0-9+\-() ]/g,'')"/>
+              </div>
+              <button type="submit" id="svc-phone-btn"
+                class="svc-btn-shimmer"
+                style="width:100%;border:none;border-radius:14px;padding:13px;color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s"
+                onmouseover="this.style.transform='scale(1.02)';this.style.boxShadow='0 8px 24px rgba(124,58,237,.4)'"
+                onmouseout="this.style.transform='';this.style.boxShadow=''">
+                Получить консультацию
+              </button>
+            </form>
+            <p style="color:#94A3B8;font-size:11px;text-align:center;margin-top:12px">Ответим в течение 1 часа · Без спама</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="section-divider max-w-6xl mx-auto px-6"></div>
+
+<!-- ===== WHY US ===== -->
+<section class="py-24 bg-slate-50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="reveal text-center mb-16">
+      <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-3">Отличие</p>
+      <h2 class="text-4xl font-extrabold text-slate-900 mb-4">Почему выбирают нас</h2>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="reveal text-center px-4">
+        <div class="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mx-auto mb-5">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.72A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+        </div>
+        <h3 class="font-bold text-slate-900 text-lg mb-2">Всегда на связи</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Отвечаем в течение часа в рабочее время. Никаких недель молчания — вы всегда знаете, что происходит с вашим проектом.</p>
+      </div>
+      <div class="reveal reveal-delay-1 text-center px-4">
+        <div class="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mx-auto mb-5">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h3 class="font-bold text-slate-900 text-lg mb-2">Полная прозрачность</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Еженедельные отчёты, доступ к задачам в реальном времени. Вы видите каждый шаг — что сделано, что в работе, что дальше.</p>
+      </div>
+      <div class="reveal reveal-delay-2 text-center px-4">
+        <div class="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mx-auto mb-5">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <h3 class="font-bold text-slate-900 text-lg mb-2">Результат, не процесс</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Фиксируем метрику успеха до старта. Сдаём не «систему», а измеримый эффект: экономию времени, рост конверсии, снижение затрат.</p>
+      </div>
+      <div class="reveal reveal-delay-3 text-center px-4">
+        <div class="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mx-auto mb-5">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        </div>
+        <h3 class="font-bold text-slate-900 text-lg mb-2">Работаем вдолгую</h3>
+        <p class="text-slate-500 text-sm leading-relaxed">Самый долгий клиент — 4 года без остановки. Мы не сдаём проект и пропадаем: поддерживаем, дорабатываем, масштабируем.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== ABOUT ===== -->
+<div class="section-divider max-w-6xl mx-auto px-6"></div>
+
+<section id="about" class="py-24">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="reveal text-center mb-16">
+      <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-3">Команда</p>
+      <h2 class="text-4xl font-extrabold text-slate-900 mb-4">О нас</h2>
+    </div>
+    <div class="flex flex-col md:flex-row items-center gap-12">
+      <div class="reveal flex-shrink-0">
+        <div class="relative">
+          <div class="w-56 h-56 rounded-3xl overflow-hidden shadow-2xl border-4 border-white ring-4 ring-primary/10">
+            <img src="albert.jpg.jpg" alt="Альберт" class="w-full h-full object-cover" />
+          </div>
+          <div class="absolute -bottom-3 -right-3 bg-white border border-slate-200 shadow-lg rounded-2xl px-4 py-3 max-w-[210px]" style="right:-8px;bottom:-8px;">
+            <p class="text-slate-700 text-[11px] leading-snug italic" style="font-style:italic;">&laquo;Технологии упрощают путь,<br/>но цель задаёт человек.&raquo;</p>
+          </div>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-2 flex-1 text-center md:text-left">
+        <h3 class="text-3xl font-extrabold text-slate-900 mb-1">Альберт</h3>
+        <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-5">Владелец агентства BUCEPHALUS</p>
+        <p class="text-slate-600 text-base leading-relaxed mb-6">
+          Строю системы нейроавтоматизации, которые реально работают — не на демо, а в боевых условиях у реальных клиентов.
+          Начинал один, сейчас за спиной <strong class="text-slate-900">команда из 10 специалистов</strong>.
+          Каждый проект — это глубокое погружение в бизнес-процессы клиента и точное решение, которое экономит время и деньги.
+        </p>
+ 
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONTACT ===== -->
+<section id="contact" class="py-24">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="grid lg:grid-cols-2 gap-12 items-start">
+
+      <!-- LEFT: info -->
+      <div class="reveal">
+        <p class="text-primary font-semibold text-sm uppercase tracking-widest mb-4">Контакты</p>
+        <h2 class="text-4xl font-extrabold text-slate-900 mb-4 leading-tight">Есть задача<br/>для AI?</h2>
+        <p class="text-slate-500 text-lg mb-8 leading-relaxed">Расскажите о своём процессе — за 30 минут разберёмся, можно ли его автоматизировать и что это даст в цифрах.</p>
+
+        <!-- CONTACTS -->
+        <div class="space-y-4 mb-8">
+          <a href="https://t.me/dgnbert" target="_blank" class="flex items-center gap-4 group p-4 bg-white border border-slate-100 rounded-2xl hover:border-primary/30 hover:shadow-md transition-all">
+            <div class="w-12 h-12 rounded-xl bg-sky-100 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="#0EA5E9"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">Telegram</div>
+              <div class="font-semibold text-slate-800 group-hover:text-primary transition-colors">@dgnbert</div>
+            </div>
+            <svg class="ml-auto text-slate-300 group-hover:text-primary transition-colors group-hover:translate-x-1 transform" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="tel:+79005356121" class="flex items-center gap-4 group p-4 bg-white border border-slate-100 rounded-2xl hover:border-primary/30 hover:shadow-md transition-all">
+            <div class="w-12 h-12 rounded-xl bg-success-light flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 11a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6.18L6.52.18a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.09a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">Телефон</div>
+              <div class="font-semibold text-slate-800 group-hover:text-primary transition-colors">+7 900 535-61-21</div>
+            </div>
+            <svg class="ml-auto text-slate-300 group-hover:text-primary transition-colors group-hover:translate-x-1 transform" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+
+          <a href="mailto:purishevalber228@yandex.ru" class="flex items-center gap-4 group p-4 bg-white border border-slate-100 rounded-2xl hover:border-primary/30 hover:shadow-md transition-all">
+            <div class="w-12 h-12 rounded-xl bg-primary-light flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2" stroke-linecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-medium uppercase tracking-wide mb-0.5">Email</div>
+              <div class="font-semibold text-slate-800 group-hover:text-primary transition-colors text-sm">purishevalber228@yandex.ru</div>
+            </div>
+            <svg class="ml-auto text-slate-300 group-hover:text-primary transition-colors group-hover:translate-x-1 transform" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: form -->
+      <div class="reveal reveal-delay-2">
+        <div class="bg-gradient-to-br from-primary to-violet-700 rounded-3xl p-8 relative overflow-hidden">
+          <div class="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full"></div>
+          <div class="absolute -bottom-8 -left-8 w-36 h-36 bg-white/5 rounded-full"></div>
+          <div class="relative">
+            <h3 class="text-xl font-bold text-white mb-1">Оставить заявку</h3>
+            <p class="text-white/60 text-sm mb-6">Ответим в течение часа в рабочее время</p>
+            <form id="contact-form" class="space-y-4">
+              <div>
+                <label class="block text-white/70 text-xs mb-1.5 font-medium">Номер телефона</label>
+                <input type="tel" placeholder="+7 (999) 000-00-00" required class="w-full bg-white/10 border border-white/20 text-white placeholder-white/40 rounded-xl px-4 py-4 text-base focus:outline-none focus:border-white/60 focus:bg-white/15 transition-all" />
+              </div>
+              <button type="submit" id="submit-btn" class="w-full bg-white text-primary font-bold py-3.5 rounded-xl hover:bg-slate-100 transition-all shadow-lg hover:shadow-xl active:scale-[0.98] transform">
+                Отправить заявку
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<div class="section-divider max-w-6xl mx-auto px-6"></div>
+<section id="faq" class="py-24">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex gap-16 items-start">
+      <div class="w-48 flex-shrink-0 hidden md:block">
+        <span class="text-xs font-semibold tracking-widest text-slate-400 uppercase">FAQ</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h2 class="text-4xl font-bold text-slate-900 mb-12">Ответы на частые вопросы</h2>
+        <div id="faq-list" class="divide-y divide-slate-200">
+
+          <!-- Q1 -->
+          <div class="faq-item py-6 cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 md:gap-6">
+                <span class="text-sm font-semibold text-slate-400 w-6 flex-shrink-0">01</span>
+                <span class="text-[15px] md:text-[18px] font-bold text-[#1F2937]">Сколько стоит внедрение?</span>
+              </div>
+              <button class="faq-btn w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center flex-shrink-0 transition-all">
+                <svg class="faq-icon w-4 h-4 text-slate-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+              </button>
+            </div>
+            <div class="faq-answer hidden mt-4 md:ml-12 text-[#4B5563] text-base leading-relaxed">
+              Стоимость зависит от масштаба задачи. Типовые проекты — от 500&nbsp;000&nbsp;₽. Оставьте заявку, и мы рассчитаем стоимость под ваши задачи.
+            </div>
+          </div>
+
+          <!-- Q2 -->
+          <div class="faq-item py-6 cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 md:gap-6">
+                <span class="text-sm font-semibold text-slate-400 w-6 flex-shrink-0">02</span>
+                <span class="text-[15px] md:text-[18px] font-bold text-[#1F2937]">Сколько длится внедрение?</span>
+              </div>
+              <button class="faq-btn w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center flex-shrink-0 transition-all">
+                <svg class="faq-icon w-4 h-4 text-slate-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+              </button>
+            </div>
+            <div class="faq-answer hidden mt-4 md:ml-12 text-[#4B5563] text-base leading-relaxed">
+              Первые результаты — через 2–4 недели. Полное внедрение — от 1 до 3 месяцев в зависимости от сложности интеграций.
+            </div>
+          </div>
+
+          <!-- Q3 -->
+          <div class="faq-item py-6 cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 md:gap-6">
+                <span class="text-sm font-semibold text-slate-400 w-6 flex-shrink-0">03</span>
+                <span class="text-[15px] md:text-[18px] font-bold text-[#1F2937]">Работаете ли вы с legacy-системами?</span>
+              </div>
+              <button class="faq-btn w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center flex-shrink-0 transition-all">
+                <svg class="faq-icon w-4 h-4 text-slate-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+              </button>
+            </div>
+            <div class="faq-answer hidden mt-4 md:ml-12 text-[#4B5563] text-base leading-relaxed">
+              Да. Мы интегрируемся в существующую инфраструктуру — 1С, Bitrix24, AmoCRM и любые системы с API.
+            </div>
+          </div>
+
+          <!-- Q4 -->
+          <div class="faq-item py-6 cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 md:gap-6">
+                <span class="text-sm font-semibold text-slate-400 w-6 flex-shrink-0">04</span>
+                <span class="text-[15px] md:text-[18px] font-bold text-[#1F2937]">Нужна ли нам своя команда разработки?</span>
+              </div>
+              <button class="faq-btn w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center flex-shrink-0 transition-all">
+                <svg class="faq-icon w-4 h-4 text-slate-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+              </button>
+            </div>
+            <div class="faq-answer hidden mt-4 md:ml-12 text-[#4B5563] text-base leading-relaxed">
+              Нет. Мы берём на себя всю разработку, внедрение и поддержку. Вам нужен только менеджер проекта с вашей стороны.
+            </div>
+          </div>
+
+          <!-- Q5 -->
+          <div class="faq-item py-6 cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3 md:gap-6">
+                <span class="text-sm font-semibold text-slate-400 w-6 flex-shrink-0">05</span>
+                <span class="text-[15px] md:text-[18px] font-bold text-[#1F2937]">Что если решение не подойдёт?</span>
+              </div>
+              <button class="faq-btn w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center flex-shrink-0 transition-all">
+                <svg class="faq-icon w-4 h-4 text-slate-500 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+              </button>
+            </div>
+            <div class="faq-answer hidden mt-4 md:ml-12 text-[#4B5563] text-base leading-relaxed">
+              Мы начинаем с пилота на реальных данных. Вы видите результат до масштабирования и принимаете решение на основе цифр.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+  function toggleFaq(item) {
+    const answer = item.querySelector('.faq-answer');
+    const icon = item.querySelector('.faq-icon');
+    const btn = item.querySelector('.faq-btn');
+    const isOpen = !answer.classList.contains('hidden');
+    // close all
+    document.querySelectorAll('.faq-item').forEach(el => {
+      el.querySelector('.faq-answer').classList.add('hidden');
+      el.querySelector('.faq-icon').style.transform = '';
+      el.querySelector('.faq-btn').classList.remove('bg-indigo-600','border-indigo-600');
+      el.querySelector('.faq-icon').style.color = '';
+    });
+    if (!isOpen) {
+      answer.classList.remove('hidden');
+      icon.style.transform = 'rotate(90deg)';
+      btn.classList.add('bg-indigo-600','border-indigo-600');
+      icon.style.color = 'white';
+    }
+  }
+</script>
+
+<!-- ===== STICKY CTA ===== -->
+<div id="sticky-cta">
+  <a href="#contact">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    Получить аудит
+  </a>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="border-t border-slate-100 py-10 bg-slate-50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-2">
+        <img src="logos.png" alt="BUCEPHALUS" class="rounded-xl" style="height:44px;width:44px;object-fit:cover;" />
+        <div class="flex flex-col leading-tight">
+          <span style="font-family:'Inter',sans-serif;font-size:15px;font-weight:800;letter-spacing:3px;background:linear-gradient(90deg,#4F46E5,#7C3AED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">BUCEPHALUS</span>
+          <span style="font-family:'Inter',sans-serif;font-size:7px;font-weight:400;letter-spacing:2px;color:#64748B;">НЕЙРОАВТОМАТИЗАЦИЯ ДЛЯ БИЗНЕСА</span>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 text-center">© 2026. Все права защищены · <a href="#" class="hover:text-primary transition-colors">Политика конфиденциальности</a></p>
+    </div>
+  </div>
+</footer>
+
+<!-- ===== SCRIPTS ===== -->
+<script>
+
+  // ── BLOCK HORIZONTAL PAGE SWIPE ──
+  (function() {
+    let startX = 0, startY = 0;
+    document.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      const dx = Math.abs(e.touches[0].clientX - startX);
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      // блокируем только если горизонталь явно преобладает
+      // и свайп не внутри карусели (там уже есть свой preventDefault)
+      if (dx > dy && dx > 8) {
+        const inCarousel = e.target.closest('#svc-container');
+        if (!inCarousel) {
+          e.preventDefault();
+        }
+      }
+    }, { passive: false });
+  })();
+
+  // ── MOBILE MENU ──
+  document.getElementById('menu-btn').addEventListener('click', () => {
+    document.getElementById('mobile-menu').classList.toggle('hidden');
+  });
+
+  // ── SCROLL REVEAL ──
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.10 });
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+  // ── COUNTER ANIMATION ──
+  function animateCounter(el) {
+    const target = parseInt(el.dataset.target);
+    const suffix = el.dataset.suffix || '';
+    const prefix = el.dataset.prefix || '';
+    const duration = 1800;
+    const start = performance.now();
+    function update(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.floor(eased * target);
+      el.textContent = prefix + current.toLocaleString('ru') + suffix;
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  }
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && !entry.target.dataset.animated) {
+        entry.target.dataset.animated = 'true';
+        animateCounter(entry.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  document.querySelectorAll('.stat-num').forEach(el => counterObserver.observe(el));
+
+  // ── CASE CARDS TOGGLE ──
+  document.querySelectorAll('.case-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const card = header.closest('.case-card');
+      const caseId = card.dataset.case;
+      const details = document.getElementById('case-' + caseId);
+      const icon = header.querySelector('.toggle-icon');
+      const isOpen = details.classList.contains('open');
+
+      // close all
+      document.querySelectorAll('.case-details').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.toggle-icon').forEach(i => i.classList.remove('rotated'));
+      document.querySelectorAll('.case-card').forEach(c => c.classList.remove('case-active'));
+
+      if (!isOpen) {
+        details.classList.add('open');
+        icon.classList.add('rotated');
+        card.classList.add('case-active');
+      }
+    });
+  });
+
+  // ── NEURAL CANVAS ──
+  const canvas = document.getElementById('neural-canvas');
+  const ctx = canvas.getContext('2d');
+  let nodes = [], animId;
+
+  function resizeCanvas() {
+    canvas.width = canvas.parentElement.offsetWidth;
+    canvas.height = canvas.parentElement.offsetHeight;
+    initNodes();
+  }
+  function initNodes() {
+    nodes = [];
+    const count = Math.floor((canvas.width * canvas.height) / 16000);
+    for (let i = 0; i < count; i++) {
+      nodes.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        r: Math.random() * 2.5 + 1.5
+      });
+    }
+  }
+  function drawNeural() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 170) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(79,70,229,${(1 - dist / 170) * 0.11})`;
+          ctx.lineWidth = 1;
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    nodes.forEach(n => {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(79,70,229,0.22)';
+      ctx.fill();
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
+      if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+    });
+    animId = requestAnimationFrame(drawNeural);
+  }
+  resizeCanvas();
+  drawNeural();
+  window.addEventListener('resize', () => { cancelAnimationFrame(animId); resizeCanvas(); drawNeural(); });
+
+  // ── STICKY CTA ──
+  (function() {
+    const stickyCta = document.getElementById('sticky-cta');
+    const hero = document.querySelector('section.relative.min-h-screen');
+    if (!stickyCta || !hero) return;
+    function checkScroll() {
+      const heroBottom = hero.getBoundingClientRect().bottom;
+      if (heroBottom < 0) {
+        stickyCta.classList.add('visible');
+      } else {
+        stickyCta.classList.remove('visible');
+      }
+    }
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    checkScroll();
+  })();
+
+  // ── SMOOTH NAV SCROLL ──
+  document.querySelectorAll('a[href^="#"]').forEach(link => {
+    link.addEventListener('click', e => {
+      const target = document.querySelector(link.getAttribute('href'));
+      if (target) {
+        e.preventDefault();
+        document.getElementById('mobile-menu').classList.add('hidden');
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // ── FORM SUBMIT ──
+  document.getElementById('contact-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('submit-btn');
+    btn.textContent = '✓ Заявка отправлена!';
+    btn.classList.remove('bg-white', 'text-primary');
+    btn.classList.add('bg-green-400', 'text-white');
+    btn.disabled = true;
+  });
+
+  // ── SERVICES SLIDER ──
+  (function() {
+    const track = document.getElementById('svc-track');
+    const cards = Array.from(track.querySelectorAll('.svc-card'));
+    const prevBtn = document.getElementById('svc-prev');
+    const nextBtn = document.getElementById('svc-next');
+    const dotsWrap = document.getElementById('svc-dots');
+    let current = 0;
+
+    function getVisible() {
+      const w = window.innerWidth;
+      if (w < 640) return 1;
+      if (w < 1024) return 2;
+      return 3;
+    }
+    function getStep() {
+      return cards[0].getBoundingClientRect().width + 20;
+    }
+    function maxIndex() {
+      return Math.max(0, cards.length - getVisible());
+    }
+    function buildDots() {
+      dotsWrap.innerHTML = '';
+      const max = maxIndex();
+      for (let i = 0; i <= max; i++) {
+        const d = document.createElement('div');
+        const active = i === current;
+        d.style.cssText = `height:3px;border-radius:9999px;cursor:pointer;transition:width 0.3s,background 0.3s;width:${active ? '28px' : '8px'};background:${active ? '#4F46E5' : 'rgba(0,0,0,0.15)'}`;
+        d.addEventListener('click', () => { current = i; update(); });
+        dotsWrap.appendChild(d);
+      }
+    }
+    function update() {
+      track.style.transform = `translateX(-${current * getStep()}px)`;
+      prevBtn.style.opacity = current === 0 ? '0.35' : '1';
+      nextBtn.style.opacity = current >= maxIndex() ? '0.35' : '1';
+      prevBtn.style.pointerEvents = current === 0 ? 'none' : 'auto';
+      nextBtn.style.pointerEvents = current >= maxIndex() ? 'none' : 'auto';
+      buildDots();
+    }
+
+    prevBtn.addEventListener('click', () => { if (current > 0) { current--; update(); } });
+    nextBtn.addEventListener('click', () => { if (current < maxIndex()) { current++; update(); } });
+
+    // nav button hover effect
+    document.querySelectorAll('.svc-nav-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', () => { btn.style.background = '#EEF2FF'; btn.style.borderColor = '#4F46E5'; btn.style.color = '#4F46E5'; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = ''; btn.style.borderColor = 'rgba(0,0,0,0.15)'; btn.style.color = ''; });
+      btn.addEventListener('mousedown', () => { btn.style.transform = 'scale(0.92)'; });
+      btn.addEventListener('mouseup', () => { btn.style.transform = ''; });
+    });
+
+    // "Подробнее" button hover
+    document.querySelectorAll('.svc-detail-btn').forEach(btn => {
+      btn.addEventListener('mouseenter', () => { btn.style.background = '#3730A3'; btn.style.borderColor = '#3730A3'; btn.style.transform = 'translateY(-1px)'; });
+      btn.addEventListener('mouseleave', () => { btn.style.background = '#4F46E5'; btn.style.borderColor = '#4F46E5'; btn.style.transform = ''; });
+    });
+
+    // ── TOUCH SWIPE ──
+    const container = document.getElementById('svc-container');
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isSwiping = false;
+
+    container.addEventListener('touchstart', e => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      isSwiping = false;
+    }, { passive: true });
+
+    container.addEventListener('touchmove', e => {
+      const dx = e.touches[0].clientX - touchStartX;
+      const dy = e.touches[0].clientY - touchStartY;
+      if (!isSwiping && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8) {
+        isSwiping = true;
+      }
+      if (isSwiping) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', e => {
+      if (!isSwiping) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if (dx < -40 && current < maxIndex()) { current++; update(); }
+      else if (dx > 40 && current > 0) { current--; update(); }
+      isSwiping = false;
+    }, { passive: true });
+
+    window.addEventListener('resize', () => { if (current > maxIndex()) current = maxIndex(); update(); });
+    update();
+  })();
+
+  // ── SERVICE MODAL ──
+  (function() {
+    const modal = document.getElementById('svc-modal');
+    const box = document.getElementById('svc-modal-box');
+    const bg = document.getElementById('svc-modal-bg');
+    const closeBtn = document.getElementById('svc-modal-close');
+    const titleEl = document.getElementById('svc-modal-title');
+    const descEl = document.getElementById('svc-modal-desc');
+    const form = document.getElementById('svc-modal-form');
+    const submitBtn = document.getElementById('svc-modal-submit');
+
+    function open(service, desc) {
+      titleEl.textContent = service;
+      descEl.textContent = desc;
+      submitBtn.textContent = 'Отправить заявку';
+      submitBtn.style.opacity = '1';
+      submitBtn.disabled = false;
+      form.reset();
+      modal.style.opacity = '1';
+      modal.style.pointerEvents = 'auto';
+      box.style.transform = 'scale(1) translateY(0)';
+      document.body.style.overflow = 'hidden';
+    }
+    function close() {
+      modal.style.opacity = '0';
+      modal.style.pointerEvents = 'none';
+      box.style.transform = 'scale(0.93) translateY(12px)';
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.svc-detail-btn').forEach(btn => {
+      btn.addEventListener('click', () => open(btn.dataset.service, btn.dataset.desc));
+    });
+    closeBtn.addEventListener('click', close);
+    bg.addEventListener('click', close);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      submitBtn.textContent = '✓ Заявка отправлена!';
+      submitBtn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+      submitBtn.style.color = 'white';
+      submitBtn.disabled = true;
+      setTimeout(close, 1800);
+    });
+  })();
+</script>
+
+<!-- MATRIX RAIN -->
+<canvas id="matrix-left"  style="position:fixed;top:0;left:0;z-index:1;pointer-events:none;opacity:0.55;"></canvas>
+<canvas id="matrix-right" style="position:fixed;top:0;right:0;z-index:1;pointer-events:none;opacity:0.55;"></canvas>
+<script>
+(function() {
+  const COLS_SIDE = 8;   // ширина полосы в колонках
+  const FONT_SIZE = 14;
+  const CHARS = '0123456789アイウエオカキクケコサシスセソタチツテトナニヌネノ';
+
+  function initMatrix(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = COLS_SIDE * FONT_SIZE;
+    canvas.width  = w;
+    canvas.height = window.innerHeight;
+
+    const cols = COLS_SIDE;
+    const drops = Array.from({length: cols}, () => Math.floor(Math.random() * -50));
+
+    function draw() {
+      ctx.clearRect(0, 0, w, canvas.height);
+
+      ctx.font = FONT_SIZE + 'px monospace';
+
+      for (let i = 0; i < cols; i++) {
+        const char = CHARS[Math.floor(Math.random() * CHARS.length)];
+        const x = i * FONT_SIZE;
+        const y = drops[i] * FONT_SIZE;
+
+        // яркий символ — голова потока
+        ctx.fillStyle = 'rgba(203,213,225,0.7)';
+        ctx.fillText(char, x, y);
+
+        // хвост
+        const tail = CHARS[Math.floor(Math.random() * CHARS.length)];
+        ctx.fillStyle = 'rgba(148,163,184,0.4)';
+        ctx.fillText(tail, x, y - FONT_SIZE);
+
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+
+    setInterval(draw, 55);
+
+    window.addEventListener('resize', () => {
+      canvas.height = window.innerHeight;
+      drops.fill(0);
+    });
+  }
+
+  initMatrix(document.getElementById('matrix-left'));
+  initMatrix(document.getElementById('matrix-right'));
+})();
+</script>
+</body>
+</html>
